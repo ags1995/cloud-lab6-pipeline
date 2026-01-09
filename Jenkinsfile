@@ -45,7 +45,10 @@ pipeline {
         
         stage('Build') {
             steps {
-                echo "Build stage - add your actual build steps here"
+             // Replace with your actual build commands
+             sh 'echo "Running actual build..."'
+             sh 'make build'
+             // Or your specific commands
             }
         }
     }
