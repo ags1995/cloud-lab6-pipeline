@@ -6,11 +6,6 @@ pipeline {
         GIT_HTTP_VERSION = 'HTTP/1.1'
         GIT_HTTP_MAX_REQUEST_BUFFER = '100M'
         
-        // Terraform variables
-        TF_VAR_yandex_cloud_id = credentials('yandex-cloud-id')
-        TF_VAR_yandex_folder_id = credentials('yandex-folder-id')
-        TF_VAR_yandex_zone = 'ru-central1-a'
-        
         // Application variables
         APP_NAME = 'my-application'
         APP_VERSION = "${BUILD_NUMBER}"
@@ -46,16 +41,8 @@ pipeline {
                     # For Java project (from Lab 2)
                     mvn clean compile || echo "Maven not available, skipping Java build"
                     
-                    # Alternative if using other language
-                    # ./gradlew build
-                    # npm install && npm run build
-                    
                     # Create artifact directory
                     mkdir -p artifacts
-                    
-                    # Package the application (example for Java)
-                    # mvn package -DskipTests
-                    # cp target/*.jar artifacts/
                     
                     # For demonstration, create a simple artifact
                     echo "Application version ${APP_VERSION}" > artifacts/version.txt
@@ -68,6 +55,12 @@ pipeline {
         
         // Stage 4: Create Infrastructure with Terraform (from Lab 5)
         stage('Terraform Infrastructure') {
+            environment {
+                // Comment out or create these credentials in Jenkins
+                # TF_VAR_yandex_cloud_id = credentials('yandex-cloud-id')
+                # TF_VAR_yandex_folder_id = credentials('yandex-folder-id')
+                TF_VAR_yandex_zone = 'ru-central1-a'
+            }
             steps {
                 sh '''
                     echo "=== Creating Infrastructure with Terraform ==="
@@ -100,12 +93,6 @@ pipeline {
                     # Test Ansible connectivity
                     ansible --version || echo "Ansible not installed"
                     
-                    # Run Ansible playbook for system configuration
-                    # ansible-playbook -i inventory.ini system-setup.yml --check
-                    
-                    # Install required software (Python, DB, etc. - from Lab 3)
-                    # ansible-playbook -i inventory.install-software.yml
-                    
                     # For demonstration
                     echo "Ansible would configure:"
                     echo "1. Update system packages"
@@ -121,18 +108,6 @@ pipeline {
             steps {
                 sh '''
                     echo "=== Deploying Application ==="
-                    
-                    # Transfer artifact to target server (from Lab 4)
-                    # scp artifacts/*.jar user@target-server:/opt/app/
-                    
-                    # Restart application
-                    # ssh user@target-server "systemctl restart myapp"
-                    
-                    # For Docker deployment (optional - from note)
-                    # docker build -t ${APP_NAME}:${APP_VERSION} .
-                    # docker push registry/${APP_NAME}:${APP_VERSION}
-                    # ssh user@target-server "docker pull registry/${APP_NAME}:${APP_VERSION}"
-                    # ssh user@target-server "docker run -d -p 8080:8080 ${APP_NAME}:${APP_VERSION}"
                     
                     # For demonstration
                     echo "Deployment would:"
@@ -151,12 +126,6 @@ pipeline {
                 sh '''
                     echo "=== Verifying Deployment ==="
                     
-                    # Health check
-                    # curl -f http://target-server:8080/health || echo "Health check failed"
-                    
-                    # Smoke test
-                    # curl -f http://target-server:8080/ || echo "Application not responding"
-                    
                     # For demonstration
                     echo "Verification would:"
                     echo "1. Check application health endpoint"
@@ -165,23 +134,6 @@ pipeline {
                     echo "4. Check log files for errors"
                     
                     echo "Deployment verification complete"
-                '''
-            }
-        }
-        
-        // Stage 8: Cleanup (Optional - for testing)
-        stage('Cleanup') {
-            when {
-                branch 'feature/*'  // Only cleanup for feature branches
-            }
-            steps {
-                sh '''
-                    echo "=== Cleaning up Test Infrastructure ==="
-                    
-                    # Destroy Terraform infrastructure for test branches
-                    # terraform destroy -auto-approve
-                    
-                    echo "Cleanup complete"
                 '''
             }
         }
@@ -197,9 +149,6 @@ pipeline {
         }
         always {
             echo " Pipeline completed. Build: ${BUILD_NUMBER}"
-            
-            // Clean workspace
-            cleanWs()
         }
     }
 }
