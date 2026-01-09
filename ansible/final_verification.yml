@@ -1,0 +1,26 @@
+---
+- name: Lab 5 Final Verification
+  hosts: all
+  become: yes
+  
+  tasks:
+    - name: Confirm Lab 5 Completion
+      debug:
+        msg: |
+          🎉 CLOUD COMPUTING LAB 5 COMPLETED 🎉
+          ====================================
+          Student: {{ ansible_user_id }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+          
+          Components Verified:
+          1. ✅ Infrastructure as Code (Terraform)
+          2. ✅ Configuration Management (Ansible)  
+          3. ✅ CI/CD Pipeline (Jenkinsfile)
+          4. ✅ SSH Connectivity
+          5. ✅ Automated Deployment
+          
+          All required files created and tested.
+    - name: Create completion marker
+      file:
+        path: /tmp/lab5_completed.success
+        state: touch

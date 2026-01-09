@@ -1,0 +1,14 @@
+[Unit]
+Description=Lab 5 Java Application Service
+After=network.target
+
+[Service]
+Type=simple
+User={{ app_user }}
+WorkingDirectory={{ app_directory }}
+ExecStart=/usr/bin/java -jar app.jar
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

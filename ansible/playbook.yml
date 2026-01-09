@@ -1,0 +1,76 @@
+---
+- name: Configure Lab 5 Application Server
+  hosts: all
+  become: yes
+
+  vars:
+    app_user: "lab5app"
+    java_version: "11"
+    app_directory: "/opt/lab5_app"
+
+  tasks:
+    - name: Update apt package cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install necessary system packages
+      apt:
+        name:
+          - "openjdk-{{ java_version }}-jdk"
+          - "python3-pip"
+          - "mariadb-server"
+          - "mariadb-client"
+          - "git"
+          - "maven"
+        state: present
+
+    - name: Create application user
+      user:
+        name: "{{ app_user }}"
+        system: yes
+        create_home: yes
+        shell: /bin/bash
+
+    - name: Create application directory
+      file:
+        path: "{{ app_directory }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+
+    - name: Configure systemd service for the application
+      template:
+        src: "templates/app.service.j2"
+        dest: "/etc/systemd/system/lab5-app.service"
+        mode: '0644'
+      notify:
+        - Reload systemd
+        - Restart application service
+
+    - name: Configure firewall
+      ufw:
+        rule: allow
+        port: "8080"
+        proto: tcp
+
+  handlers:
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Restart application service
+      systemd:
+        name: lab5-app
+        state: restarted
+        enabled: yes
+
+    - name: Deploy Java application artifact
+      copy:
+        src: "{{ artifact_path | default('/tmp/application.jar') }}"
+        dest: "{{ app_directory }}/app.jar"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+      notify: Restart application service

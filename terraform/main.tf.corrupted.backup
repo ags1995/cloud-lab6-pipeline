@@ -1,0 +1,19 @@
+terraform {
+  required_version = ">= 1.0.0"
+  
+  required_providers {
+    openstack = {
+      source  = "registry.terraform.io/terraform-provider-openstack/openstack"
+      version = "1.54.1"
+    }
+  }
+}
+
+provider "openstack" {
+  auth_url    = "https://cloud.crplab.ru:5000/v3"
+  region      = "RegionOne"
+  user_name   = "master2022"
+  password    = "J8F3LGa*7KU7ye"
+  tenant_name = "students"
+  domain_name = "Default"
+}

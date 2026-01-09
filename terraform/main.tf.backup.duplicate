@@ -1,0 +1,23 @@
+terraform {
+  required_version = ">= 1.0.0"
+  
+  required_providers {
+    openstack = {
+      source  = "terraform-provider-openstack/openstack"
+      version = "1.48.0"  # Exact version, not range
+    }
+  }
+}
+
+provider "openstack" {
+  auth_url    = "https://cloud.crplab.ru:5000/v3"
+  region      = "RegionOne"
+  user_name   = "master2022"
+  password    = "J8F3LGa*7KU7ye"
+  tenant_name = "students"
+  domain_name = "Default"
+}
+
+# Keep only ONE copy of each resource below this line
+# Add your keypair, security group, and instance resources here
+# Make sure you don't have duplicates!

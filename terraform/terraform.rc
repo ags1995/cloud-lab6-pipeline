@@ -1,0 +1,9 @@
+provider_installation {
+  # For the openstack provider, use direct URLs
+  direct {
+    # URL for the OpenStack provider v1.48.0
+    urls = [
+      "https://github.com/terraform-provider-openstack/terraform-provider-openstack/releases/download/v1.48.0/terraform-provider-openstack_1.48.0_linux_amd64.zip",
+    ]
+  }
+}
