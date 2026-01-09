@@ -2,83 +2,50 @@ pipeline {
     agent any
     
     environment {
-        TF_VAR_password = credentials('openstack-password')
-        ARTIFACT_PATH = 'target/*.jar'
+        // Set environment variables for Git
+        GIT_HTTP_VERSION = 'HTTP/1.1'
+        GIT_HTTP_MAX_REQUEST_BUFFER = '100M'
     }
     
     stages {
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
-        
-        stage('Build Java Application') {
-            steps {
-                sh 'mvn -B -DskipTests clean package'
-                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
-            }
-        }
-        
-        stage('Terraform Plan') {
-            steps {
-                dir('terraform') {
-                    sh 'terraform init'
-                    sh 'terraform plan'
-                }
-            }
-        }
-        
-        stage('Terraform Apply') {
-            steps {
-                dir('terraform') {
-                    sh 'terraform apply -auto-approve'
-                    script {
-                        env.INSTANCE_IP = sh(
-                            script: 'terraform output -raw instance_ip',
-                            returnStdout: true
-                        ).trim()
-                    }
-                }
-            }
-        }
-        
-        stage('Ansible Configuration') {
-            steps {
-                dir('ansible') {
-                    // Copy built artifact for deployment
-                    sh 'cp ../target/*.jar files/application.jar'
-                    
-                    // Create inventory with Terraform output
-                    sh """
-                        echo "[lab_servers]" > inventory.ini
-                        echo "${env.INSTANCE_IP} ansible_user=ubuntu ansible_ssh_private_key_file=/jenkins/.ssh/id_rsa" >> inventory.ini
-                    """
-                    
-                    // Run Ansible playbook
-                    sh 'ansible-playbook -i inventory.ini playbook.yml -e "artifact_path=files/application.jar"'
-                }
-            }
-        }
-        
-        stage('Verify Deployment') {
+        stage('Configure Git') {
             steps {
                 script {
-                    sh "curl -f http://${env.INSTANCE_IP}:8080/health || echo 'Application starting...'"
+                    // Apply Git configuration fixes
+                    sh '''
+                        echo "Configuring Git for HTTP/1.1..."
+                        git config --global http.version HTTP/1.1
+                        git config --global http.postBuffer 1048576000
+                        git config --global core.compression 0
+                        echo "Git configuration updated"
+                        
+                        # Verify the settings
+                        echo "Current Git HTTP settings:"
+                        git config --global --get http.version
+                        git config --global --get http.postBuffer
+                    '''
                 }
             }
         }
-    }
-    
-    post {
-        always {
-            echo "Lab 5 pipeline completed"
-            // Optional: Cleanup or notifications
+        
+        stage('Checkout Code') {
+            steps {
+                retry(3) {
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: '*/main']],
+                        extensions: [],
+                        userRemoteConfigs: [[
+                            url: 'https://github.com/ags1995/cloud-lab6-pipeline.git'
+                        ]]
+                    ])
+                }
+            }
         }
-        failure {
-            // Optional: Rollback or alert
-            dir('terraform') {
-                sh 'terraform destroy -auto-approve || true'
+        
+        stage('Build') {
+            steps {
+                echo "Build stage - add your actual build steps here"
             }
         }
     }
