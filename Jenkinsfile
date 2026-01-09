@@ -9,6 +9,7 @@ pipeline {
         // Application variables
         APP_NAME = 'my-application'
         APP_VERSION = "${BUILD_NUMBER}"
+        TF_VAR_yandex_zone = 'ru-central1-a'
     }
     
     stages {
@@ -55,12 +56,6 @@ pipeline {
         
         // Stage 4: Create Infrastructure with Terraform (from Lab 5)
         stage('Terraform Infrastructure') {
-            environment {
-                // Comment out or create these credentials in Jenkins
-                # TF_VAR_yandex_cloud_id = credentials('yandex-cloud-id')
-                # TF_VAR_yandex_folder_id = credentials('yandex-folder-id')
-                TF_VAR_yandex_zone = 'ru-central1-a'
-            }
             steps {
                 sh '''
                     echo "=== Creating Infrastructure with Terraform ==="
@@ -141,14 +136,14 @@ pipeline {
     
     post {
         success {
-            echo " Pipeline SUCCESS! Lab 6 completed successfully."
+            echo "🎉 Pipeline SUCCESS! Lab 6 completed successfully."
             archiveArtifacts artifacts: 'artifacts/**/*', fingerprint: true
         }
         failure {
-            echo " Pipeline FAILED! Check logs for details."
+            echo "❌ Pipeline FAILED! Check logs for details."
         }
         always {
-            echo " Pipeline completed. Build: ${BUILD_NUMBER}"
+            echo "📊 Pipeline completed. Build: ${BUILD_NUMBER}"
         }
     }
 }
