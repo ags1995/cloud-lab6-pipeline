@@ -1,0 +1,26 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+
+# Terraform provider binaries
+terraform-provider-*
+
+# Jenkins/CI
+build/
+target/
+*.jar
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# System
+.DS_Store
+Thumbs.db
+
+# Ansible
+*.retry
