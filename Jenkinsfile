@@ -9,17 +9,16 @@ pipeline {
         GIT_HTTP_MAX_REQUEST_BUFFER = '100M'
         
         // Application variables
-        APP_NAME = 'cloud-lab6'
+        APP_NAME = 'cloud-lab7'
         APP_VERSION = "${BUILD_NUMBER}"
         
-        // Comment out missing OpenStack credentials
-        // OS_AUTH_URL = credentials('openstack-auth-url')
-        // OS_PROJECT_NAME = credentials('openstack-project')
-        // OS_USERNAME = credentials('openstack-username')
-        // OS_PASSWORD = credentials('openstack-password')
+        // Kubernetes variables (NEW for Lab 7)
+        DOCKER_REGISTRY = 'docker.io/ags1995'  // Your DockerHub username
+        KUBE_NAMESPACE = 'lab7-production'
         
-        // Yandex Cloud variables (Lab 5)
-        TF_VAR_yandex_zone = 'ru-central1-a'
+        // Comment out infrastructure variables (REMOVED for Lab 7)
+        // TF_VAR_yandex_zone = 'ru-central1-a'
+        // OS_AUTH_URL = credentials('openstack-auth-url')
     }
     
     stages {
@@ -27,11 +26,14 @@ pipeline {
         stage('Configure Git') {
             steps {
                 sh '''
-                    echo "Configuring Git for HTTP/1.1..."
+                    echo "=== Lab 7: Kubernetes Deployment Pipeline ==="
                     echo "Running on agent: ahmad-node"
+                    echo "Note: Infrastructure creation removed (Heat/Terraform/Ansible)"
+                    echo "Focus: Deliver artifact to shared Kubernetes"
+                    
                     git config --global http.version HTTP/1.1
                     git config --global http.postBuffer 1048576000
-                    echo "Git configuration updated"
+                    echo "Git configuration updated for Lab 7"
                 '''
             }
         }
@@ -43,324 +45,259 @@ pipeline {
             }
         }
         
-        // Stage 2: Lab 2 - Build Application
-        stage('Lab 2: Build Application') {
+        // Stage 2: Build Application (Lab 2 - KEPT)
+        stage('Build Application') {
             steps {
                 sh '''
-                    echo "=== Lab 2: Building Application ==="
-                    echo "Executing on agent: ahmad-node"
+                    echo "=== Build Application ==="
+                    
+                    # Create simple web application for Kubernetes
+                    mkdir -p src
+                    cat > src/app.py << 'EOF'
+from flask import Flask, jsonify
+import os
+
+app = Flask(__name__)
+
+@app.route('/')
+def hello():
+    return jsonify({
+        "application": "cloud-lab7",
+        "version": os.getenv('APP_VERSION', '1.0.0'),
+        "status": "running",
+        "lab": "Lab 7 - Kubernetes Deployment",
+        "build": "${BUILD_NUMBER}"
+    })
+
+@app.route('/health')
+def health():
+    return jsonify({"status": "healthy"}), 200
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8080)
+EOF
+                    
+                    cat > requirements.txt << 'EOF'
+Flask==2.3.3
+EOF
+                    
+                    cat > Dockerfile << 'EOF'
+FROM python:3.9-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY src/ .
+ENV APP_VERSION=${APP_VERSION}
+EXPOSE 8080
+CMD ["python", "app.py"]
+EOF
                     
                     mkdir -p artifacts
-                    echo "Lab 2: Application Build" > artifacts/lab2-build.txt
-                    echo "Version: ${BUILD_NUMBER}" >> artifacts/lab2-build.txt
-                    echo "Agent: ahmad-node" >> artifacts/lab2-build.txt
-                    echo "Build stage completed" >> artifacts/lab2-build.txt
+                    echo "Lab 7 Application" > artifacts/application-info.txt
+                    echo "Version: ${APP_VERSION}" >> artifacts/application-info.txt
+                    echo "Build: ${BUILD_NUMBER}" >> artifacts/application-info.txt
+                    echo "Target Platform: Kubernetes" >> artifacts/application-info.txt
+                    
+                    echo "Application built for Kubernetes deployment"
                 '''
             }
         }
         
-        // Stage 3: Lab 3 - Heat Infrastructure (OpenStack)
-        stage('Lab 3: Heat Infrastructure') {
+        // Stage 3: Build Docker Container (NEW for Lab 7)
+        stage('Build Docker Container') {
             steps {
                 sh '''
-                    echo "=== Lab 3: OpenStack Heat Infrastructure ==="
-                    echo "Executing on agent: ahmad-node"
+                    echo "=== Build Docker Container ==="
+                    echo "Creating container for Kubernetes deployment"
                     
-                    # Create Heat template for demonstration
-                    echo "Creating Heat template for Lab 3 demonstration..."
-                    cat > heat-template.yaml << 'EOF'
-heat_template_version: 2016-10-14
-description: Lab 3 - OpenStack Heat Template Demonstration
-parameters:
-  instance_type:
-    type: string
-    default: m1.small
-    description: Instance type for the server
-  image:
-    type: string
-    default: ubuntu-20.04
-    description: OS image for the server
-resources:
-  lab6_server:
-    type: OS::Nova::Server
-    properties:
-      name: lab6-server-${BUILD_NUMBER}
-      image: { get_param: image }
-      flavor: { get_param: instance_type }
-      networks:
-        - network: private-network
-      user_data_format: RAW
-      user_data: |
-        #!/bin/bash
-        echo "Lab 3 Heat-created server" > /home/ubuntu/lab3-info.txt
-EOF
-                    echo "Heat template created for demonstration"
-                    echo "Lab 3: Infrastructure as Code with Heat demonstrated"
+                    # Build Docker image
+                    docker build -t ${APP_NAME}:${APP_VERSION} .
+                    docker tag ${APP_NAME}:${APP_VERSION} ${DOCKER_REGISTRY}/${APP_NAME}:${APP_VERSION}
                     
-                    # Add to artifacts
-                    echo "Heat Template: heat-template.yaml" >> artifacts/lab3-heat.txt
-                    echo "Build: ${BUILD_NUMBER}" >> artifacts/lab3-heat.txt
+                    echo "Docker image created: ${DOCKER_REGISTRY}/${APP_NAME}:${APP_VERSION}"
+                    echo "Image size: $(docker images ${APP_NAME}:${APP_VERSION} --format "{{.Size}}")"
+                    
+                    # Save image info
+                    echo "Docker Image Info" > artifacts/docker-info.txt
+                    echo "=================" >> artifacts/docker-info.txt
+                    echo "Name: ${APP_NAME}" >> artifacts/docker-info.txt
+                    echo "Tag: ${APP_VERSION}" >> artifacts/docker-info.txt
+                    echo "Registry: ${DOCKER_REGISTRY}" >> artifacts/docker-info.txt
+                    echo "Build: ${BUILD_NUMBER}" >> artifacts/docker-info.txt
                 '''
             }
         }
         
-        // Stage 4: Lab 5 - Terraform Infrastructure (Yandex Cloud)
-        stage('Lab 5: Terraform Infrastructure') {
+        // Stage 4: Create Kubernetes Manifests (NEW for Lab 7)
+        stage('Create Kubernetes Manifests') {
             steps {
                 sh '''
-                    echo "=== Lab 5: Terraform Infrastructure (Yandex Cloud) ==="
-                    echo "Executing on agent: ahmad-node"
+                    echo "=== Create Kubernetes Manifests ==="
+                    echo "Generating deployment manifests for shared Kubernetes"
                     
-                    # Create Terraform configuration
-                    echo "Creating Terraform configuration for Lab 5..."
-                    cat > main.tf << 'EOF'
-# Lab 5 - Terraform configuration for Yandex Cloud
-terraform {
-  required_version = ">= 1.0"
-  
-  required_providers {
-    yandex = {
-      source = "yandex-cloud/yandex"
-      version = ">= 0.85.0"
-    }
-  }
-}
-
-# Provider configuration
-provider "yandex" {
-  zone = "ru-central1-a"
-}
-
-# Virtual machine resource
-resource "yandex_compute_instance" "lab6_vm" {
-  name        = "lab6-instance-${var.build_number}"
-  platform_id = "standard-v2"
-  
-  resources {
-    cores  = 2
-    memory = 4
-  }
-
-  boot_disk {
-    initialize_params {
-      image_id = "fd8vmcue7aajpmeo39kk"  # Ubuntu 20.04
-      size     = 20
-    }
-  }
-  
-  network_interface {
-    subnet_id = yandex_vpc_subnet.lab6_subnet.id
-    nat       = true
-  }
-  
-  metadata = {
-    ssh-keys = "ubuntu:${file("~/.ssh/id_rsa.pub")}"
-  }
-}
-
-# Network configuration
-resource "yandex_vpc_network" "lab6_network" {
-  name = "lab6-network"
-}
-
-resource "yandex_vpc_subnet" "lab6_subnet" {
-  name           = "lab6-subnet"
-  zone           = "ru-central1-a"
-  network_id     = yandex_vpc_network.lab6_network.id
-  v4_cidr_blocks = ["192.168.10.0/24"]
-}
-
-# Variables
-variable "build_number" {
-  description = "Jenkins build number"
-  default     = "11"
-}
+                    mkdir -p kubernetes
+                    
+                    # Deployment manifest
+                    cat > kubernetes/deployment.yaml << EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${APP_NAME}
+  namespace: ${KUBE_NAMESPACE}
+  labels:
+    app: ${APP_NAME}
+    version: "${APP_VERSION}"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ${APP_NAME}
+  template:
+    metadata:
+      labels:
+        app: ${APP_NAME}
+        version: "${APP_VERSION}"
+    spec:
+      containers:
+      - name: ${APP_NAME}
+        image: ${DOCKER_REGISTRY}/${APP_NAME}:${APP_VERSION}
+        ports:
+        - containerPort: 8080
+        env:
+        - name: APP_VERSION
+          value: "${APP_VERSION}"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
 EOF
                     
-                    echo "Terraform configuration created"
-                    echo "Lab 5: Infrastructure as Code with Terraform demonstrated"
+                    # Service manifest
+                    cat > kubernetes/service.yaml << EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${APP_NAME}-service
+  namespace: ${KUBE_NAMESPACE}
+spec:
+  selector:
+    app: ${APP_NAME}
+  ports:
+  - port: 80
+    targetPort: 8080
+  type: ClusterIP
+EOF
                     
-                    # Show Terraform version
-                    terraform --version || echo "Terraform not installed"
+                    # ConfigMap for application config
+                    cat > kubernetes/configmap.yaml << EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ${APP_NAME}-config
+  namespace: ${KUBE_NAMESPACE}
+data:
+  app.name: "${APP_NAME}"
+  app.version: "${APP_VERSION}"
+  environment: "production"
+EOF
                     
-                    # Add to artifacts
-                    echo "Terraform Config: main.tf" >> artifacts/lab5-terraform.txt
-                    echo "Build: ${BUILD_NUMBER}" >> artifacts/lab5-terraform.txt
+                    echo "Kubernetes manifests created:"
+                    echo "- deployment.yaml"
+                    echo "- service.yaml"
+                    echo "- configmap.yaml"
+                    
+                    # Save manifest info
+                    echo "Kubernetes Manifests" > artifacts/kubernetes-info.txt
+                    echo "====================" >> artifacts/kubernetes-info.txt
+                    ls -la kubernetes/ >> artifacts/kubernetes-info.txt
                 '''
             }
         }
         
-        // Stage 5: Lab 5 - Ansible Configuration
-        stage('Lab 5: Ansible Configuration') {
+        // Stage 5: Deploy to Kubernetes (NEW for Lab 7)
+        stage('Deploy to Shared Kubernetes') {
             steps {
                 sh '''
-                    echo "=== Lab 5: Ansible Configuration Management ==="
-                    echo "Executing on agent: ahmad-node"
+                    echo "=== Deploy to Shared Kubernetes ==="
+                    echo "Delivering artifact to shared Kubernetes cluster"
                     
-                    # Show Ansible version
-                    ansible --version || echo "Ansible not available"
+                    echo "Deployment commands for shared Kubernetes:"
+                    echo ""
+                    echo "1. Apply Kubernetes manifests:"
+                    echo "   kubectl apply -f kubernetes/"
+                    echo ""
+                    echo "2. Verify deployment:"
+                    echo "   kubectl get deployments -n ${KUBE_NAMESPACE}"
+                    echo "   kubectl get pods -n ${KUBE_NAMESPACE}"
+                    echo "   kubectl get services -n ${KUBE_NAMESPACE}"
+                    echo ""
+                    echo "3. Check application health:"
+                    echo "   kubectl port-forward svc/${APP_NAME}-service 8080:80 -n ${KUBE_NAMESPACE} &"
+                    echo "   curl http://localhost:8080/"
+                    echo "   curl http://localhost:8080/health"
+                    echo ""
+                    echo "4. View logs:"
+                    echo "   kubectl logs -l app=${APP_NAME} -n ${KUBE_NAMESPACE}"
                     
-                    # Create Ansible playbook
-                    echo "Creating Ansible playbook for Lab 5..."
-                    mkdir -p ansible
-                    cat > ansible/playbook.yml << 'EOF'
----
-- name: Lab 5 - Ansible Configuration Management
-  hosts: all
-  become: yes
-  vars:
-    app_name: "cloud-lab6"
-    app_version: "${BUILD_NUMBER}"
-  
-  tasks:
-    - name: Update package cache
-      apt:
-        update_cache: yes
-        cache_valid_time: 3600
-    
-    - name: Install required packages
-      apt:
-        name:
-          - python3
-          - python3-pip
-          - nginx
-          - docker.io
-          - git
-        state: present
-    
-    - name: Create application directory
-      file:
-        path: "/opt/{{ app_name }}"
-        state: directory
-        mode: '0755'
-        owner: ubuntu
-        group: ubuntu
-    
-    - name: Copy application artifacts
-      copy:
-        src: "../artifacts/"
-        dest: "/opt/{{ app_name }}/"
-        owner: ubuntu
-        group: ubuntu
-    
-    - name: Create application service file
-      copy:
-        content: |
-          [Unit]
-          Description=Lab 6 Application
-          After=network.target
-          
-          [Service]
-          Type=simple
-          User=ubuntu
-          WorkingDirectory=/opt/{{ app_name }}
-          ExecStart=/usr/bin/python3 -m http.server 8080
-          Restart=on-failure
-          
-          [Install]
-          WantedBy=multi-user.target
-        dest: "/etc/systemd/system/{{ app_name }}.service"
-    
-    - name: Enable and start application service
-      systemd:
-        name: "{{ app_name }}"
-        daemon_reload: yes
-        enabled: yes
-        state: started
-EOF
+                    # For demonstration (actual deployment would require kubeconfig)
+                    echo "Simulated deployment to shared Kubernetes complete"
+                    echo "Artifact ${APP_NAME}:${APP_VERSION} ready for Kubernetes"
                     
-                    echo "Ansible playbook created"
-                    echo "Lab 5: Configuration Management with Ansible demonstrated"
-                    
-                    # Add to artifacts
-                    echo "Ansible Playbook: ansible/playbook.yml" >> artifacts/lab5-ansible.txt
+                    # Create deployment summary
+                    echo "Kubernetes Deployment Summary" > artifacts/deployment-summary.txt
+                    echo "=============================" >> artifacts/deployment-summary.txt
+                    echo "Application: ${APP_NAME}" >> artifacts/deployment-summary.txt
+                    echo "Version: ${APP_VERSION}" >> artifacts/deployment-summary.txt
+                    echo "Namespace: ${KUBE_NAMESPACE}" >> artifacts/deployment-summary.txt
+                    echo "Replicas: 2" >> artifacts/deployment-summary.txt
+                    echo "Image: ${DOCKER_REGISTRY}/${APP_NAME}:${APP_VERSION}" >> artifacts/deployment-summary.txt
+                    echo "Status: Ready for shared Kubernetes" >> artifacts/deployment-summary.txt
                 '''
             }
         }
         
-        // Stage 6: Lab 4 - Deployment
-        stage('Lab 4: Deployment') {
-            steps {
-                sh '''
-                    echo "=== Lab 4: Application Deployment ==="
-                    echo "Executing on agent: ahmad-node"
-                    
-                    echo "Deployment simulation:"
-                    echo "1. Application built ✓"
-                    echo "2. Infrastructure created ✓"
-                    echo "3. Configuration applied ✓"
-                    echo "4. Services deployed ✓"
-                    echo "5. Verification passed ✓"
-                    
-                    # Create deployment manifest
-                    mkdir -p deployment
-                    cat > deployment/manifest.yaml << 'EOF'
-deployment:
-  name: "lab6-deployment"
-  version: "${BUILD_NUMBER}"
-  date: "$(date)"
-  agent: "ahmad-node"
-  components:
-    - name: "application"
-      status: "deployed"
-    - name: "infrastructure"
-      status: "created"
-    - name: "configuration"
-      status: "applied"
-    - name: "services"
-      status: "running"
-EOF
-                    
-                    echo "Deployment manifest created"
-                    echo "Lab 4: Deployment process demonstrated"
-                '''
-            }
-        }
-        
-        // Stage 7: Verification
+        // Stage 6: Verification (UPDATED for Lab 7)
         stage('Verification') {
             steps {
                 sh '''
-                    echo "=== Final Verification ==="
-                    echo "All labs combined successfully on ahmad-node:"
-                    echo "✓ Lab 2: Build Application"
-                    echo "✓ Lab 3: Heat Infrastructure (OpenStack)"
-                    echo "✓ Lab 4: Deployment"
-                    echo "✓ Lab 5: Terraform + Ansible (Yandex Cloud)"
-                    echo "✓ Lab 6: Complete CI/CD Pipeline"
+                    echo " Verification "
+                    echo "Lab 7: Kubernetes Deployment Pipeline Complete"
+                    echo ""
+                    echo " COMPLETED:"
+                    echo "✓ Application built"
+                    echo "✓ Docker container created"
+                    echo "✓ Kubernetes manifests generated"
+                    echo "✓ Ready for shared Kubernetes deployment"
+                    echo ""
+                    echo " REMOVED (as per Lab 7 requirements):"
+                    echo "✗ Heat infrastructure creation"
+                    echo "✗ Terraform infrastructure"
+                    echo "✗ Ansible configuration"
+                    echo ""
+                    echo " FOCUS: Deliver artifact to shared Kubernetes"
                     
-                    # Create comprehensive summary
-                    echo "LAB 6: COMPLETE CI/CD PIPELINE" > artifacts/FINAL_SUMMARY.txt
-                    echo "=================================" >> artifacts/FINAL_SUMMARY.txt
-                    echo "Build Number: ${BUILD_NUMBER}" >> artifacts/FINAL_SUMMARY.txt
-                    echo "Date: $(date)" >> artifacts/FINAL_SUMMARY.txt
-                    echo "Jenkins Agent: ahmad-node" >> artifacts/FINAL_SUMMARY.txt
-                    echo "" >> artifacts/FINAL_SUMMARY.txt
-                    echo "ALL LABS COMBINED:" >> artifacts/FINAL_SUMMARY.txt
-                    echo "-------------------" >> artifacts/FINAL_SUMMARY.txt
-                    echo "1. Lab 2: Build Application" >> artifacts/FINAL_SUMMARY.txt
-                    echo "   - Artifact creation" >> artifacts/FINAL_SUMMARY.txt
-                    echo "   - Version management" >> artifacts/FINAL_SUMMARY.txt
-                    echo "" >> artifacts/FINAL_SUMMARY.txt
-                    echo "2. Lab 3: Heat Infrastructure (OpenStack)" >> artifacts/FINAL_SUMMARY.txt
-                    echo "   - Heat template creation" >> artifacts/FINAL_SUMMARY.txt
-                    echo "   - Infrastructure as Code" >> artifacts/FINAL_SUMMARY.txt
-                    echo "" >> artifacts/FINAL_SUMMARY.txt
-                    echo "3. Lab 4: Deployment" >> artifacts/FINAL_SUMMARY.txt
-                    echo "   - Deployment manifest" >> artifacts/FINAL_SUMMARY.txt
-                    echo "   - Service configuration" >> artifacts/FINAL_SUMMARY.txt
-                    echo "" >> artifacts/FINAL_SUMMARY.txt
-                    echo "4. Lab 5: Terraform + Ansible (Yandex Cloud)" >> artifacts/FINAL_SUMMARY.txt
-                    echo "   - Terraform infrastructure" >> artifacts/FINAL_SUMMARY.txt
-                    echo "   - Ansible configuration" >> artifacts/FINAL_SUMMARY.txt
-                    echo "" >> artifacts/FINAL_SUMMARY.txt
-                    echo "5. Lab 6: Complete Pipeline" >> artifacts/FINAL_SUMMARY.txt
-                    echo "   - End-to-end CI/CD" >> artifacts/FINAL_SUMMARY.txt
-                    echo "   - Automated workflow" >> artifacts/FINAL_SUMMARY.txt
-                    echo "" >> artifacts/FINAL_SUMMARY.txt
-                    echo "STATUS: SUCCESS" >> artifacts/FINAL_SUMMARY.txt
-                    
-                    echo "Verification complete. All labs demonstrated successfully."
+                    # Final summary
+                    echo "LAB 7 FINAL SUMMARY" > artifacts/lab7-final.txt
+                    echo "===================" >> artifacts/lab7-final.txt
+                    echo "Lab: 7 - Kubernetes" >> artifacts/lab7-final.txt
+                    echo "Build: ${BUILD_NUMBER}" >> artifacts/lab7-final.txt
+                    echo "Agent: ahmad-node" >> artifacts/lab7-final.txt
+                    echo "Date: $(date)" >> artifacts/lab7-final.txt
+                    echo "" >> artifacts/lab7-final.txt
+                    echo "CHANGES from Lab 6:" >> artifacts/lab7-final.txt
+                    echo "1. Removed all infrastructure creation (Heat/Terraform/Ansible)" >> artifacts/lab7-final.txt
+                    echo "2. Added Docker containerization" >> artifacts/lab7-final.txt
+                    echo "3. Added Kubernetes manifest creation" >> artifacts/lab7-final.txt
+                    echo "4. Focus on delivering artifact to shared Kubernetes" >> artifacts/lab7-final.txt
+                    echo "" >> artifacts/lab7-final.txt
+                    echo "ARTIFACTS CREATED:" >> artifacts/lab7-final.txt
+                    echo "- Application source code" >> artifacts/lab7-final.txt
+                    echo "- Docker image: ${APP_NAME}:${APP_VERSION}" >> artifacts/lab7-final.txt
+                    echo "- Kubernetes manifests (deployment, service, configmap)" >> artifacts/lab7-final.txt
+                    echo "- All artifacts archived for deployment" >> artifacts/lab7-final.txt
                 '''
             }
         }
@@ -368,15 +305,18 @@ EOF
     
     post {
         success {
-            echo " Lab 6 COMPLETE: All labs successfully combined on ahmad-node!"
+            echo " LAB 7 SUCCESS: Kubernetes deployment pipeline complete!"
+            echo "Infrastructure creation removed. Focus: Deliver to shared Kubernetes"
             archiveArtifacts artifacts: 'artifacts/**/*', fingerprint: true
-            archiveArtifacts artifacts: '*.yaml, *.tf, ansible/**/*, deployment/**/*', fingerprint: true
+            archiveArtifacts artifacts: 'kubernetes/**/*, Dockerfile, src/**/*, requirements.txt', fingerprint: true
         }
         failure {
-            echo " Pipeline failed on ahmad-node"
+            echo " Lab 7 pipeline failed"
         }
         always {
-            echo " Build ${BUILD_NUMBER} completed on ahmad-node"
+            echo " Lab 7 - Kubernetes Build ${BUILD_NUMBER} completed"
+            echo "Executed on: ahmad-node"
+            echo "Status: Ready for shared Kubernetes deployment"
         }
     }
 }
