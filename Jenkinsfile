@@ -1,5 +1,7 @@
 pipeline {
-    agent any
+    agent {
+        label 'ahmad-node'  // Specify exact node
+    }
     
     environment {
         // Git configuration to fix HTTP/2 issues
@@ -136,14 +138,14 @@ pipeline {
     
     post {
         success {
-            echo "🎉 Pipeline SUCCESS! Lab 6 completed successfully."
+            echo " Pipeline SUCCESS! Lab 6 completed successfully."
             archiveArtifacts artifacts: 'artifacts/**/*', fingerprint: true
         }
         failure {
-            echo "❌ Pipeline FAILED! Check logs for details."
+            echo " Pipeline FAILED! Check logs for details."
         }
         always {
-            echo "📊 Pipeline completed. Build: ${BUILD_NUMBER}"
+            echo " Pipeline completed. Build: ${BUILD_NUMBER}"
         }
     }
 }
