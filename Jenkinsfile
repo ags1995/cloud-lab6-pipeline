@@ -1,7 +1,11 @@
 pipeline {
+<<<<<<< HEAD
     agent {
         label 'ahmad-node'  // Specify exact node
     }
+=======
+    label 'ahmad-node'  # Specify exact node
+>>>>>>> f5138c3898cbdcd39b5795df197845290c647a2e
     
     environment {
         // Git configuration to fix HTTP/2 issues
