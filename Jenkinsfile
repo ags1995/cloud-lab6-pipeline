@@ -1,5 +1,5 @@
 pipeline {
-    agent any
+    label 'ahmad-node'  # Specify exact node
     
     environment {
         // Git configuration to fix HTTP/2 issues
