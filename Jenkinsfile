@@ -39,7 +39,7 @@ pipeline {
                     mkdir -p artifacts
                     
                     # Create application configuration
-                    cat > artifacts/app-config.yaml << EOF
+                    cat > artifacts/app-config.yaml << 'EOF'
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -75,7 +75,7 @@ EOF
                     mkdir -p kubernetes
                     
                     # Using public Docker image to avoid building
-                    cat > kubernetes/deployment.yaml << EOF
+                    cat > kubernetes/deployment.yaml << 'EOF'
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -118,7 +118,7 @@ spec:
           name: lab7-app-config
 EOF
                     
-                    cat > kubernetes/service.yaml << EOF
+                    cat > kubernetes/service.yaml << 'EOF'
 apiVersion: v1
 kind: Service
 metadata:
@@ -134,7 +134,7 @@ spec:
   type: LoadBalancer
 EOF
                     
-                    cat > kubernetes/configmap.yaml << EOF
+                    cat > kubernetes/configmap.yaml << 'EOF'
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -164,8 +164,8 @@ EOF
                         artifacts/ \
                         Jenkinsfile
                     
-                    # Create deployment instructions
-                    cat > DEPLOYMENT_INSTRUCTIONS.md << EOF
+                    # Create deployment instructions (SIMPLIFIED - no backticks)
+                    cat > DEPLOYMENT_INSTRUCTIONS.md << 'EOF'
 # Lab 7: Kubernetes Deployment Instructions
 
 ## Application Details
@@ -176,34 +176,28 @@ EOF
 
 ## Deployment Steps
 
-1. **Apply to Kubernetes:**
-   \`\`\`bash
+1. Apply to Kubernetes:
    kubectl apply -f kubernetes/
-   \`\`\`
 
-2. **Verify Deployment:**
-   \`\`\`bash
+2. Verify Deployment:
    kubectl get all -n ${KUBE_NAMESPACE}
    kubectl get pods -n ${KUBE_NAMESPACE}
    kubectl get services -n ${KUBE_NAMESPACE}
-   \`\`\`
 
-3. **Check Application:**
-   \`\`\`bash
+3. Check Application:
    kubectl port-forward svc/${APP_NAME}-service 8080:80 -n ${KUBE_NAMESPACE} &
    curl http://localhost:8080
-   \`\`\`
 
 ## Contents
-- \`kubernetes/\` - Kubernetes manifests
-- \`artifacts/\` - Application configuration
-- \`Jenkinsfile\` - Pipeline definition
+- kubernetes/ - Kubernetes manifests
+- artifacts/ - Application configuration
+- Jenkinsfile - Pipeline definition
 
 ## Lab 7 Requirements Met
--  Removed infrastructure creation (Heat/Terraform/Ansible)
--  Focus on delivering artifact to shared Kubernetes
--  Generated Kubernetes manifests
--  Created deployment package
+- REMOVED infrastructure creation (Heat/Terraform/Ansible)
+- Focus on delivering artifact to shared Kubernetes
+- Generated Kubernetes manifests
+- Created deployment package
 EOF
                     
                     echo "Deployment package created: ${APP_NAME}-v${APP_VERSION}-k8s.tar.gz"
@@ -217,30 +211,30 @@ EOF
                 sh '''
                     echo "=== Lab 7 Verification ==="
                     echo ""
-                    echo " LAB 7 REQUIREMENTS COMPLETED:"
+                    echo "LAB 7 REQUIREMENTS COMPLETED:"
                     echo ""
-                    echo "1.  REMOVED Infrastructure Creation:"
+                    echo "1. REMOVED Infrastructure Creation:"
                     echo "   - No Heat templates (Lab 3)"
                     echo "   - No Terraform (Lab 5)"
                     echo "   - No Ansible (Lab 5)"
                     echo ""
-                    echo "2.  FOCUS ON KUBERNETES DELIVERY:"
+                    echo "2. FOCUS ON KUBERNETES DELIVERY:"
                     echo "   - Generated Kubernetes manifests"
                     echo "   - Created ConfigMaps"
                     echo "   - Setup Services"
                     echo "   - Prepared LoadBalancer"
                     echo ""
-                    echo "3.  ARTIFACT FOR SHARED KUBERNETES:"
+                    echo "3. ARTIFACT FOR SHARED KUBERNETES:"
                     echo "   - Package: ${APP_NAME}-v${APP_VERSION}-k8s.tar.gz"
                     echo "   - Contains all deployment files"
                     echo "   - Ready for shared cluster"
                     echo ""
-                    echo "4.  EXECUTED ON SPECIFIED AGENT:"
+                    echo "4. EXECUTED ON SPECIFIED AGENT:"
                     echo "   - Agent: ahmad-node"
                     echo "   - Build: ${BUILD_NUMBER}"
                     echo "   - Version: ${APP_VERSION}"
                     echo ""
-                    echo " Lab 7 Complete: Artifact ready for shared Kubernetes deployment!"
+                    echo "Lab 7 Complete: Artifact ready for shared Kubernetes deployment!"
                 '''
             }
         }
@@ -248,13 +242,13 @@ EOF
     
     post {
         success {
-            echo " LAB 7 SUCCESSFUL!"
+            echo "LAB 7 SUCCESSFUL!"
             echo "========================================"
-            echo "Infrastructure creation: REMOVED ✓"
-            echo "Kubernetes manifests: GENERATED ✓"
-            echo "Deployment package: CREATED ✓"
-            echo "Ready for shared Kubernetes: YES ✓"
-            echo "Executed on ahmad-node: YES ✓"
+            echo "Infrastructure creation: REMOVED"
+            echo "Kubernetes manifests: GENERATED"
+            echo "Deployment package: CREATED"
+            echo "Ready for shared Kubernetes: YES"
+            echo "Executed on ahmad-node: YES"
             
             archiveArtifacts artifacts: 'artifacts/**/*', fingerprint: true
             archiveArtifacts artifacts: 'kubernetes/**/*', fingerprint: true
@@ -262,10 +256,10 @@ EOF
             archiveArtifacts artifacts: 'DEPLOYMENT_INSTRUCTIONS.md', fingerprint: true
         }
         failure {
-            echo " Lab 7 pipeline failed"
+            echo "Lab 7 pipeline failed"
         }
         always {
-            echo " Lab 7 Build ${BUILD_NUMBER} completed on ahmad-node"
+            echo "Lab 7 Build ${BUILD_NUMBER} completed on ahmad-node"
             echo "Pipeline: Kubernetes Deployment"
             echo "Status: Ready for shared Kubernetes"
         }
